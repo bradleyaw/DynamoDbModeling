@@ -56,7 +56,11 @@ provider:
 
 functions:
   dynamo:
-    handler: handler.dynamo
+    handler: src/functions/dynamoBasic/index.dynamo
+    events:
+     - http:
+         path: /dynamo
+         method: get
 
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
