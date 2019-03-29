@@ -1,10 +1,14 @@
 service: dynamo-db-modeling
 
 plugins:
-  - serverless-offline
+  - serverless-dynamodb-local
+  - serverless-offline # keep this last
 
 custom:
   tableName: 'users-table-${self:provider.stage}'
+  dynamodb:
+    start:
+      migrate: true
 
 provider:
   name: aws
@@ -35,6 +39,10 @@ functions:
     handler: src/functions/dynamoBasic/index.handler
     events:
       - http: 'GET /users/{proxy+}'
+  getUserByName:
+    handler: src/functions/dynamoBasic/index.handler
+    events:
+      - http: 'GET /users'
   createUser:
     handler: src/functions/dynamoBasic/index.handler
     events:

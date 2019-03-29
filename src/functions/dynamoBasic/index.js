@@ -5,7 +5,15 @@ const AWS = require('aws-sdk');
 const uuidv4 = require('uuid/v4');
 
 const USERS_TABLE = process.env.USERS_TABLE;
-const dynamoDb = new AWS.DynamoDB.DocumentClient();
+const IS_OFFLINE = process.env.IS_OFFLINE;
+let dynamoDb;
+
+dynamoDb = IS_OFFLINE ?
+  new AWS.DynamoDB.DocumentClient({
+    region: 'localhost',
+    endpoint: 'http://localhost:8000'
+  })
+ : new AWS.DynamoDB.DocumentClient();
 
 const app = express()
 
@@ -16,7 +24,7 @@ app.get('/', function (req, res) {
   res.send('Dynamo Rocks!')
 })
 
-// Get User endpoint
+// Get user by id
 app.get('/users/:userId', function (req, res) {
   const params = {
     TableName: USERS_TABLE,
@@ -39,7 +47,32 @@ app.get('/users/:userId', function (req, res) {
   });
 })
 
-// Create User endpoint
+// Get user by name via scan
+app.get('/users', function (req, res) {
+
+    const params = {
+      TableName: USERS_TABLE,
+      FilterExpression: '#n = :name',
+      ExpressionAttributeValues: {':name' : req.query.name},
+      ExpressionAttributeNames: {
+        "#n": "name"
+      }
+    }
+  
+    dynamoDb.scan(params, (error, result) => {
+      if (error) {
+        console.log(error);
+        res.status(400).json({ error: 'Could not get user' });
+      }
+      if (result) {
+        res.json({ result });
+      } else {
+        res.status(404).json({ error: "User not found" });
+      }
+    });
+  })
+
+// Create user
 app.post('/users', function (req, res) {
   const userId = uuidv4();
   const { name } = req.body;
