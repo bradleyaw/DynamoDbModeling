@@ -3,6 +3,8 @@ const bodyParser = require('body-parser');
 const express = require('express')
 const AWS = require('aws-sdk');
 const uuidv4 = require('uuid/v4');
+const helmet = require('helmet')
+const validateName = require('../../../app/middleware/validateName')
 
 const USERS_TABLE = process.env.USERS_TABLE;
 const IS_OFFLINE = process.env.IS_OFFLINE;
@@ -13,11 +15,11 @@ dynamoDb = IS_OFFLINE ?
     region: 'localhost',
     endpoint: 'http://localhost:8000'
   })
- : new AWS.DynamoDB.DocumentClient();
+  : new AWS.DynamoDB.DocumentClient();
 
 const app = express()
 
-
+app.use(helmet())
 app.use(bodyParser.json({ strict: false }));
 
 app.get('/', function (req, res) {
@@ -39,7 +41,7 @@ app.get('/users/:userId', function (req, res) {
       res.status(400).json({ error: 'Could not get user' });
     }
     if (result.Item) {
-      const {userId, name} = result.Item;
+      const { userId, name } = result.Item;
       res.json({ userId, name });
     } else {
       res.status(404).json({ error: "User not found" });
@@ -50,35 +52,32 @@ app.get('/users/:userId', function (req, res) {
 // Get user by name via scan
 app.get('/users', function (req, res) {
 
-    const params = {
-      TableName: USERS_TABLE,
-      FilterExpression: '#n = :name',
-      ExpressionAttributeValues: {':name' : req.query.name},
-      ExpressionAttributeNames: {
-        "#n": "name"
-      }
+  const params = {
+    TableName: USERS_TABLE,
+    FilterExpression: '#n = :name',
+    ExpressionAttributeValues: { ':name': req.query.name },
+    ExpressionAttributeNames: {
+      "#n": "name"
     }
-  
-    dynamoDb.scan(params, (error, result) => {
-      if (error) {
-        console.log(error);
-        res.status(400).json({ error: 'Could not get user' });
-      }
-      if (result) {
-        res.json({ result });
-      } else {
-        res.status(404).json({ error: "User not found" });
-      }
-    });
-  })
+  }
+
+  dynamoDb.scan(params, (error, result) => {
+    if (error) {
+      console.log(error);
+      res.status(400).json({ error: 'Could not get user' });
+    }
+    if (result) {
+      res.json({ result });
+    } else {
+      res.status(404).json({ error: "User not found" });
+    }
+  });
+})
 
 // Create user
-app.post('/users', function (req, res) {
+app.post('/users', validateName, function (req, res) {
   const userId = uuidv4();
   const { name } = req.body;
-  if (typeof name !== 'string') {
-    res.status(400).json({ error: 'Name must be a string' });
-  }
 
   const params = {
     TableName: USERS_TABLE,
@@ -96,5 +95,6 @@ app.post('/users', function (req, res) {
     res.json({ userId, name });
   });
 })
+
 
 module.exports.handler = serverless(app);
